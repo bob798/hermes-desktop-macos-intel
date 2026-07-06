@@ -1,0 +1,64 @@
+name: Auto-release on upstream version bump
+
+# Daily check: if upstream NousResearch/hermes-agent's version (pyproject.toml
+# on main) is newer than our latest release tag, build the Intel app and
+# publish a release. Runs on macos-13, GitHub's x86_64 macOS runner.
+on:
+  schedule:
+    - cron: "17 2 * * *"   # daily 02:17 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-release:
+    runs-on: macos-13   # x86_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare upstream version with latest release
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          UPSTREAM=$(curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/pyproject.toml \
+            | grep -m1 '^version' | sed 's/.*"\(.*\)".*/\1/')
+          CURRENT=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+          echo "upstream=$UPSTREAM current=$CURRENT"
+          if [ "$UPSTREAM" = "$CURRENT" ]; then
+            echo "up to date"
+            echo "new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "new=true" >> "$GITHUB_OUTPUT"
+            echo "version=$UPSTREAM" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify Intel architecture
+        if: steps.check.outputs.new == 'true'
+        run: |
+          [ "$(uname -m)" = "x86_64" ] || { echo "runner is not Intel — see README fallback"; exit 1; }
+
+      - name: Build and package
+        if: steps.check.outputs.new == 'true'
+        run: bash scripts/build.sh
+
+      - name: Publish release
+        if: steps.check.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.check.outputs.version }}"
+          COMMIT=$(git -C "$HOME/.hermes/hermes-agent" rev-parse --short HEAD)
+          SHA=$(cut -d' ' -f1 dist/*.sha256 | head -1)
+          gh release create "v$VERSION" dist/Hermes-*-mac-x64.dmg dist/*.sha256 \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Hermes Desktop $VERSION — Intel macOS (x86_64)" \
+            --notes "Unofficial Intel (x86_64) macOS build, published automatically on upstream version bump.
+
+          - **Upstream**: [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) @ \`$COMMIT\` (v$VERSION), unmodified
+          - **Built by**: GitHub Actions ([this workflow](../../actions/workflows/auto-release.yml)) on macos-13 (Intel)
+          - **Signing**: ad-hoc (not notarized) — on first launch, right-click → Open, or \`xattr -cr /Applications/Hermes.app\`
+          - **SHA-256**: \`$SHA\`
+
+          On first run the app installs the Hermes backend automatically and opens the setup wizard."
