@@ -1,0 +1,31 @@
+name: Build Intel macOS app
+
+# Manual trigger: builds Hermes Desktop for x86_64 macOS and attaches the DMG
+# to a draft release. Requires an Intel runner (macos-13 is GitHub's last
+# x86_64 macOS image); if GitHub has retired it, build locally with
+# scripts/build.sh and upload via `gh release` instead.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach the DMG to (e.g. v0.18.0)"
+        required: true
+
+jobs:
+  build:
+    runs-on: macos-13   # x86_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify architecture
+        run: |
+          [ "$(uname -m)" = "x86_64" ] || { echo "runner is not Intel"; exit 1; }
+
+      - name: Build and package
+        run: bash scripts/build.sh
+
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ inputs.tag }}" dist/Hermes-*-mac-x64.dmg dist/*.sha256 --clobber
