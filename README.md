@@ -10,6 +10,12 @@ The official installer at [hermes-agent.nousresearch.com](https://hermes-agent.n
 
 Hermes Desktop itself is MIT-licensed open source and builds fine for Intel. This repo provides prebuilt Intel binaries so you don't have to build them yourself.
 
+## How releases are built
+
+Releases are **fully automated**: a [GitHub Actions workflow](.github/workflows/auto-release.yml) checks the [upstream stable releases](https://github.com/NousResearch/hermes-agent/releases) every 6 hours. When a new one ships, it checks out that exact release tag, builds the app for x86_64 on GitHub's `macos-15-intel` runner (a clean cloud machine — no local environment involved), verifies that the main binary **and every native module** are Intel-only, runs `hdiutil verify` on the DMG, and publishes DMG + ZIP + `SHA256SUMS.txt`. Each release notes the upstream tag and commit it was built from.
+
+This repo intentionally does not vendor the upstream source tree — audit the complete source in the [official repository](https://github.com/NousResearch/hermes-agent).
+
 ## Install
 
 1. Download the latest `Hermes-<version>-mac-x64.dmg` from [Releases](../../releases)
@@ -53,6 +59,8 @@ This is an **unofficial community effort**, not affiliated with or endorsed by N
 这是 [Hermes Desktop](https://github.com/NousResearch/hermes-agent/tree/main/apps/desktop)（Nous Research 出品的开源 AI Agent 桌面版）的**非官方 Intel (x86_64) macOS 构建**。
 
 **为什么需要这个仓库**：官网安装包只编译了 Apple Silicon (arm64) 版本，Intel Mac 打开会提示"此电脑版本无法使用"。Hermes 桌面版本身是 MIT 开源的，可以为 Intel 正常编译——这里提供编译好的版本。
+
+**构建方式**：发布完全自动化——GitHub Actions 每 6 小时检查[上游稳定版](https://github.com/NousResearch/hermes-agent/releases)，有新版即在 GitHub 云端的 `macos-15-intel`（Intel 架构）机器上从官方 release tag 精确构建，逐一校验主程序与全部原生模块均为 x86_64，DMG 通过 `hdiutil verify` 后发布（附 SHA-256 校验文件）。每个 Release 都标注对应的上游 tag 和 commit，本仓库不复制上游源码，源码请在[官方仓库](https://github.com/NousResearch/hermes-agent)审计。
 
 **安装**：
 
