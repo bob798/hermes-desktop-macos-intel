@@ -72,6 +72,12 @@ jobs:
           node-version: 24
           cache: npm
 
+      # Node 24 ships npm 11.16.0, which upstream's engines field excludes
+      # (engines.npm is "<11.10.0 || >=11.17.0"). Pin the newest 11.x instead
+      # of npm@latest to stay on the same major the lockfile was written for.
+      - name: Use an npm version upstream accepts
+        run: npm install -g npm@11.19.0
+
       - name: Install locked dependencies
         run: npm ci
 
