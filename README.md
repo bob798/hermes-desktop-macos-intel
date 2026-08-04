@@ -52,6 +52,18 @@ Or use [`scripts/build.sh`](scripts/build.sh), which does the above plus DMG pac
 
 This is an **unofficial community effort**, not affiliated with or endorsed by Nous Research. Hermes Agent and Hermes Desktop are © Nous Research, released under the [MIT License](https://github.com/NousResearch/hermes-agent/blob/main/LICENSE). This repo redistributes builds under the same license. If Nous Research ships official Intel builds, use those instead — and this repo will be archived.
 
+### Why official Intel builds aren't coming
+
+Intel Macs are not a backlog item waiting their turn — upstream lists them as explicitly unsupported in [`platform-support.md`](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/getting-started/platform-support.md):
+
+> These platforms and distribution methods are **not** supported. […] PRs to fix them will _not_ be accepted, and any code that keeps compatibility with them may be removed at any point.
+>
+> - macOS on x86 (Intel) processors
+
+That policy is visible in practice: community PRs adding a universal (x86_64 + arm64) installer — [#37762](https://github.com/NousResearch/hermes-agent/pull/37762), [#51777](https://github.com/NousResearch/hermes-agent/pull/51777), [#52408](https://github.com/NousResearch/hermes-agent/pull/52408) — have stayed open without maintainer review, including one carrying a successful real-Intel-hardware test report. So expect this repo to remain useful for the foreseeable future.
+
+The same policy also means upstream may remove the code paths that currently make an x86_64 build possible, without notice. If that happens, this repo's release workflow fails on its architecture checks rather than publishing a broken build — you'd see releases stop, not silently degrade.
+
 ---
 
 ## 中文说明
@@ -77,5 +89,9 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-
 ```
 
 **安全说明**：构建为 ad-hoc 签名（无开发者证书、未公证），首次打开有 Gatekeeper 提示属正常现象；每个 Release 都标注了对应的上游 commit，可自行复现验证；发布前已扫描确认不含任何密钥、凭据或个人路径。
+
+**为什么官方不会出 Intel 版**：这不是排期问题——上游在 [`platform-support.md`](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/getting-started/platform-support.md) 中把 "macOS on x86 (Intel) processors" 明确列为**不支持**，并写明"修复这些平台的 PR 将不会被接受，任何为兼容它们而存在的代码都可能随时被移除"。实际情况也印证了这一点：社区提交的通用架构（x86_64 + arm64）安装器 PR [#37762](https://github.com/NousResearch/hermes-agent/pull/37762)、[#51777](https://github.com/NousResearch/hermes-agent/pull/51777)、[#52408](https://github.com/NousResearch/hermes-agent/pull/52408) 至今无人 review，其中一个还附有 Intel 真机验证成功的报告。因此本仓库在可预见的未来都会持续有用。
+
+这条政策也意味着：上游可能随时移除当前使自动构建得以成立的代码路径。真发生的话，本仓库的发布流水线会在架构校验环节直接失败——你会看到"不再有新 Release"，而不是悄悄发出一个坏包。
 
 本仓库为社区非官方项目，与 Nous Research 无关联。代码版权归 Nous Research，MIT 协议。如官方发布 Intel 版本，请优先使用官方版，本仓库届时将归档。
