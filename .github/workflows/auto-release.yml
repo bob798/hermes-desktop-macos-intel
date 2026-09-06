@@ -81,11 +81,41 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      # The build below deliberately passes no --publish flag; this guard
+      # fails fast (and explains why) if upstream ever stops supplying it.
+      - name: Check upstream still pins electron-builder to --publish never
+        working-directory: apps/desktop
+        run: |
+          node -e '
+            const fs = require("node:fs")
+            const src = fs.readFileSync("scripts/run-electron-builder.mjs", "utf8")
+            if (!/--publish[^\n]*never|never[^\n]*--publish/.test(src)) {
+              console.error(
+                "upstream no longer pins --publish never in " +
+                "apps/desktop/scripts/run-electron-builder.mjs.\n" +
+                "Add the flag back to the build step below - but exactly once, " +
+                "or electron-builder treats the duplicated flag as an array and " +
+                "tries to publish to GitHub."
+              )
+              process.exit(1)
+            }
+          '
+
+      # Arch only - do NOT add `--publish never` here. Upstream's
+      # scripts/run-electron-builder.mjs already prepends it, and a second
+      # copy makes yargs collapse the repeats into an array
+      # (["never", "never"]). electron-builder compares publish against the
+      # *string* "never", so an array reads as "this is a publishing build".
+      # Packaging still succeeds, but the final step that writes
+      # latest-mac.yml re-emits it as an artifact carrying the GitHub publish
+      # config auto-detected from upstream's .git/config; that constructs a
+      # GitHub publisher and dies with "GitHub Personal Access Token is not
+      # set" long after the DMG and ZIP were built.
       - name: Build unsigned Intel macOS packages
         working-directory: apps/desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npm run dist:mac -- --x64 --publish never
+        run: npm run dist:mac -- --x64
 
       - name: Validate architecture and package integrity
         id: validate
