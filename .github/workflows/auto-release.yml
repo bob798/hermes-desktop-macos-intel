@@ -61,22 +61,57 @@ jobs:
       UPSTREAM_URL: ${{ needs.discover.outputs.upstream_url }}
     steps:
       - name: Check out exact upstream release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: NousResearch/hermes-agent
           ref: ${{ needs.discover.outputs.upstream_tag }}
           fetch-depth: 1
 
-      - uses: actions/setup-node@v4
+      # Read the toolchain from upstream instead of pinning our own: .nvmrc is
+      # the Node version upstream develops against, and engines.npm below is
+      # the range it enforces (its .npmrc sets engine-strict=true, so a miss is
+      # a hard error). A hardcoded npm pin already broke this pipeline once;
+      # deriving both means upstream can move without stopping releases.
+      - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
-      # Node 24 ships npm 11.16.0, which upstream's engines field excludes
-      # (engines.npm is "<11.10.0 || >=11.17.0"). Pin the newest 11.x instead
-      # of npm@latest to stay on the same major the lockfile was written for.
       - name: Use an npm version upstream accepts
-        run: npm install -g npm@11.19.0
+        run: |
+          set -euo pipefail
+          range="$(node -p "require('./package.json').engines?.npm ?? ''")"
+          current="$(npm -v)"
+          if [ -z "$range" ]; then
+            echo "upstream declares no engines.npm; keeping bundled npm $current"
+            exit 0
+          fi
+          # `npm view` lists matches in publish order, not semver order, so the
+          # newest match is not the last element - sort explicitly. Prefer the
+          # major already bundled with this Node, which is the one upstream's
+          # lockfile is maintained against.
+          target="$(npm view "npm@$range" version --json | node -e '
+            const versions = [].concat(JSON.parse(require("node:fs").readFileSync(0, "utf8")))
+            const current = process.argv[1]
+            const parts = v => v.split(".").map(Number)
+            const desc = (a, b) => parts(b)[0] - parts(a)[0] || parts(b)[1] - parts(a)[1] || parts(b)[2] - parts(a)[2]
+            const stable = versions.filter(v => !v.includes("-"))
+            if (stable.includes(current)) { process.stdout.write(current); process.exit(0) }
+            const sameMajor = stable.filter(v => parts(v)[0] === parts(current)[0])
+            const pick = (sameMajor.length ? sameMajor : stable).sort(desc)[0]
+            if (!pick) {
+              console.error("no published npm satisfies engines.npm " + JSON.stringify(process.argv[2]))
+              process.exit(1)
+            }
+            process.stdout.write(pick)
+          ' "$current" "$range")"
+          if [ "$target" = "$current" ]; then
+            echo "bundled npm $current already satisfies engines.npm \"$range\""
+          else
+            echo "installing npm@$target for engines.npm \"$range\" (bundled: $current)"
+            npm install -g "npm@$target"
+          fi
+          npm -v
 
       - name: Install locked dependencies
         run: npm ci
