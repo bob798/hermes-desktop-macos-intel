@@ -156,7 +156,29 @@ jobs:
         working-directory: apps/desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npm run dist:mac -- --x64
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            if npm run dist:mac -- --x64; then
+              exit 0
+            fi
+            if [ "$attempt" = 2 ]; then
+              echo "::error::build failed on both attempts - this is not a transient packaging failure"
+              exit 1
+            fi
+            # dmgbuild finishes by detaching the volume it just mounted, and on
+            # a busy runner something else (Spotlight indexing it, most often)
+            # can still hold it: "hdiutil: couldn't eject ... - Resource busy".
+            # Nothing about the build is wrong when that happens, so retry once.
+            # A real breakage fails the same way twice and still fails the job,
+            # and the architecture checks below gate correctness either way.
+            echo "::warning::build attempt 1 failed; cleaning up and retrying once"
+            for vol in "/Volumes/Install Hermes"*; do
+              [ -d "$vol" ] && hdiutil detach "$vol" -force || true
+            done
+            # A half-written DMG would otherwise confuse the artifact globs.
+            rm -rf release
+          done
 
       - name: Validate architecture and package integrity
         id: validate
