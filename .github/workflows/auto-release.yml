@@ -11,6 +11,11 @@ on:
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch: {}
+  # Temporary, lives only on ci-test/** branches: an on-demand way to run the
+  # real pipeline when workflow_dispatch is not reachable. Delete the branch
+  # once the run has served its purpose; never merge this trigger to master.
+  push:
+    branches: ["ci-test/**"]
 
 permissions:
   contents: write
