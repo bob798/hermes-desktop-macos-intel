@@ -11,6 +11,10 @@ on:
   schedule:
     - cron: "23 */6 * * *"
   workflow_dispatch: {}
+  # TEST-ONLY (ci-test/** branches): workflow_dispatch is not reachable from
+  # the session driving this, so a push runs the pipeline. Never merge.
+  push:
+    branches: ["ci-test/**"]
 
 permissions:
   contents: write
@@ -45,6 +49,8 @@ jobs:
           if gh release view "$upstream_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "should_build=false" >> "$GITHUB_OUTPUT"
             echo "Release $upstream_tag already rebuilt; nothing to do."
+            # TEST-ONLY: build anyway, to exercise the toolchain changes.
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
           else
             echo "should_build=true" >> "$GITHUB_OUTPUT"
             echo "New upstream stable release: $upstream_tag"
@@ -194,6 +200,8 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Publish release
+        # TEST-ONLY: v2026.8.31 is already released; skip re-publishing.
+        if: false
         working-directory: apps/desktop
         env:
           GH_TOKEN: ${{ github.token }}
