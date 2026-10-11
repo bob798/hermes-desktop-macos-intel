@@ -136,16 +136,15 @@ jobs:
             }
           '
 
-      # Arch only - do NOT add `--publish never` here. Upstream's
-      # scripts/run-electron-builder.mjs already prepends it, and a second
-      # copy makes yargs collapse the repeats into an array
-      # (["never", "never"]). electron-builder compares publish against the
-      # *string* "never", so an array reads as "this is a publishing build".
-      # Packaging still succeeds, but the final step that writes
-      # latest-mac.yml re-emits it as an artifact carrying the GitHub publish
-      # config auto-detected from upstream's .git/config; that constructs a
-      # GitHub publisher and dies with "GitHub Personal Access Token is not
-      # set" long after the DMG and ZIP were built.
+      # --x64 is intentionally omitted here. Upstream v0.21.6 added a strict
+      # productOutput() validator in scripts/build/frontend-common.mjs.
+      # When --x64 is passed explicitly, run-electron-builder.mjs constructs
+      # the native deps path as apps/desktop/build/native-deps-darwin-x64
+      # (arch-suffixed). That path is not in the validator's allowed list;
+      # only the exact path apps/desktop/build/native-deps (no suffix) is
+      # permitted. Without --x64, the script falls back to process.arch
+      # ('x64' on this macos-15-intel runner) and uses the unsuffixed path,
+      # which passes. The runner is x86_64-only so the output is still Intel.
       - name: Build unsigned Intel macOS packages
         working-directory: apps/desktop
         env:
@@ -153,7 +152,7 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in 1 2; do
-            if npm run dist:mac -- --x64; then
+            if npm run dist:mac; then
               exit 0
             fi
             if [ "$attempt" = 2 ]; then
