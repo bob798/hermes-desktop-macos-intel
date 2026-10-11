@@ -136,6 +136,27 @@ jobs:
             }
           '
 
+      # v0.21.6 added scripts/build/python.mjs which requires HERMES_PYTHON to
+      # be set to a Python 3.14 interpreter before the build can run. It is
+      # used by prepare-packaging-tools.mjs → prepare-dmgbuild.mjs to download
+      # the locked dmgbuild binary via the upstream PM system. The two-step
+      # setup_toolchain.py pattern mirrors upstream's .github/actions/setup-pm
+      # exactly: "prepare" reads the lock pins and writes HERMES_HOME to
+      # GITHUB_ENV; "install" uses that home to download uv + Python 3.14 from
+      # the PM artifact mirror, then writes HERMES_PYTHON to GITHUB_ENV for
+      # subsequent steps.
+      - name: Prepare PM Python toolchain pins
+        run: |
+          set -euo pipefail
+          python3 -S scripts/ci/setup_toolchain.py prepare \
+            --toolchain python --packages '' --home "$RUNNER_TEMP/setup-pm"
+
+      - name: Install PM Python toolchain (provides HERMES_PYTHON)
+        run: |
+          set -euo pipefail
+          python3 -S scripts/ci/setup_toolchain.py install \
+            --toolchain python --packages '' --home "$RUNNER_TEMP/setup-pm"
+
       # --x64 is intentionally omitted here. Upstream v0.21.6 added a strict
       # productOutput() validator in scripts/build/frontend-common.mjs.
       # When --x64 is passed explicitly, run-electron-builder.mjs constructs
